@@ -28,8 +28,9 @@ package-mode = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--allure-no-capture --screenshot=only-on-failure --video=retain-on-failure"
+addopts = "-m 'not unit'"
 markers = [
+    "unit: isolated tests for infrastructure components",
     "e2e: cross-layer integration tests",
     "courses: course, cover, and exercise workflows",
 ]

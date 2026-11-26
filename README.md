@@ -22,7 +22,7 @@ poetry run playwright install chromium
 Запустите тесты с результатами Allure.
 
 ```sh
-poetry run pytest --alluredir=allure-results
+poetry run pytest -m e2e --alluredir=allure-results
 ```
 
 При падении браузерного сценария Playwright оставляет скриншот и видео в
@@ -31,3 +31,12 @@ poetry run pytest --alluredir=allure-results
 
 Адреса и HTTP-таймаут можно задать через `.env` по образцу
 [.env.example](.env.example). По умолчанию `API_TIMEOUT` равен 100 секундам.
+
+## Unit-тесты инфраструктуры
+
+Обычный запуск `poetry run pytest` исключает сценарии с маркером `unit`.
+Инфраструктурные проверки запускаются из корня проекта без стенда, браузера и Allure-результатов.
+
+```sh
+poetry run pytest tests/unit -m unit --noconftest --disable-plugin-autoload
+```
