@@ -18,3 +18,16 @@ UI доступен по адресу `http://127.0.0.1:3000`, API — `http://1
 poetry install
 poetry run playwright install chromium
 ```
+
+Запустите тесты с результатами Allure.
+
+```sh
+poetry run pytest --alluredir=allure-results
+```
+
+При падении браузерного сценария Playwright оставляет скриншот и видео в
+`test-results/`. Если включён Allure, оба файла появятся и во вложениях теста.
+Перед публикацией результатов проверьте, что в кадрах нет учётных данных.
+
+Адреса и HTTP-таймаут можно задать через `.env` по образцу
+[.env.example](.env.example). По умолчанию `API_TIMEOUT` равен 100 секундам.
