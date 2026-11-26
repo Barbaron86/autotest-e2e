@@ -28,7 +28,8 @@ def pytest_configure(config: pytest.Config) -> None:
     config.option.attach_capture = False
     args = (*config.getini("addopts"), *shlex.split(os.getenv("PYTEST_ADDOPTS", "")), *config.invocation_params.args)
     explicit_options = {arg.partition("=")[0] for arg in args}
-    for name, default in {"screenshot": "only-on-failure", "video": "retain-on-failure"}.items():
+    browser_defaults = {"tracing": "on", "screenshot": "only-on-failure", "video": "retain-on-failure"}
+    for name, default in browser_defaults.items():
         if f"--{name}" not in explicit_options and config.getoption(name, default=None) == "off":
             setattr(config.option, name, default)
 
