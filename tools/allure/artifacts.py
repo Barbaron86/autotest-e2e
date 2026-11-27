@@ -14,7 +14,7 @@ def pytest_runtest_makereport(item: Item) -> Generator[None, Result[TestReport],
     """Прикладывает сохранённые Playwright Trace, скриншоты и видео к Allure.
 
     К отчёту о teardown браузерные контексты уже закрыты и файлы сохранены.
-    Плагин читает артефакты только у сценариев с готовым каталогом Playwright.
+    Allure получает файлы напрямую из каталога pytest-playwright.
 
     Args:
         item: Тест, для которого pytest формирует отчёт.

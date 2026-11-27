@@ -14,14 +14,14 @@ from clients.users.public_users_client import PublicUsersClient
 
 @pytest.fixture
 def public_http_client() -> Iterator[Client]:
-    """Предоставляет HTTP-клиент без токена и закрывает его после теста."""
+    """Предоставляет независимый HTTP-клиент с Cookie Jar и закрывает его после теста."""
     with get_public_http_client() as client:
         yield client
 
 
 @pytest.fixture
 def authentication_client(public_http_client: Client) -> AuthenticationClient:
-    """Создаёт клиент входа и обновления токенов поверх публичного транспорта."""
+    """Создаёт клиент входа, обновления и завершения сессии поверх отдельного транспорта."""
     return AuthenticationClient(public_http_client)
 
 

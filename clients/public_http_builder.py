@@ -13,5 +13,6 @@ def get_public_http_client() -> Client:
     return Client(
         base_url=str(settings.api_base_url),
         timeout=settings.api_timeout,
+        headers={"Origin": settings.api_origin},
         event_hooks={"request": [log_request_event_hook], "response": [log_response_event_hook]},
     )

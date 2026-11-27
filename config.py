@@ -1,3 +1,5 @@
+from urllib.parse import urlsplit
+
 from pydantic import Field, HttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,6 +12,12 @@ class Settings(BaseSettings):
     ui_base_url: HttpUrl = HttpUrl("http://127.0.0.1:3000")
     api_base_url: HttpUrl = HttpUrl("http://127.0.0.1:8000")
     api_timeout: float = Field(default=100, gt=0, allow_inf_nan=False)
+
+    @property
+    def api_origin(self) -> str:
+        """Возвращает Origin API без завершающего слеша для изменяющих запросов."""
+        url = urlsplit(str(self.api_base_url))
+        return f"{url.scheme}://{url.netloc}"
 
     @field_validator("api_base_url")
     @classmethod

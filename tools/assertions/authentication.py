@@ -1,8 +1,11 @@
-import allure
+from http import HTTPStatus
+from http.cookies import CookieError, SimpleCookie
 
-from clients.authentication.authentication_schema import LoginResponseSchema
+import allure
+from httpx import Response
+
 from clients.error_schema import InternalErrorResponseSchema, ValidationErrorResponseSchema
-from tools.assertions.base import assert_equal, assert_is_true
+from tools.assertions.base import assert_equal, assert_is_true, assert_status_code
 from tools.assertions.errors import (
     ValidationErrorExpectation,
     assert_internal_error_response,
@@ -10,37 +13,51 @@ from tools.assertions.errors import (
 )
 from tools.error_messages import ApiErrorMessage
 from tools.error_types import ValidationErrorType
+from tools.routes import APIRoutes
 
 
-def assert_login_response(response: LoginResponseSchema) -> None:
-    """Проверяет токены в ответе при успешной аутентификации.
+def _assert_cookie_session_response(response: Response) -> None:
+    """Проверяет HTTP 204, пустое тело и обе непустые cookies сессии."""
+    assert_status_code(response.status_code, HTTPStatus.NO_CONTENT)
+    assert_equal(len(response.content), 0, "authentication response body size")
+    cookie_names = {cookie.name for cookie in response.cookies.jar if cookie.value}
+    assert_is_true({"access_token", "refresh_token"} <= cookie_names, "session cookies present")
 
-    Args:
-        response: Ответ API с токенами авторизации.
 
-    Raises:
-        AssertionError: Если тип токена отличается от bearer
-            или access token либо refresh token пустой.
-    """
+def assert_login_response(response: Response) -> None:
+    """Проверяет успешный cookie-login без записи значений cookies в отчёт."""
     with allure.step("Check login response"):
-        assert_equal(response.token.token_type, "bearer", "token type")
-        assert_is_true(response.token.access_token, "access token")
-        assert_is_true(response.token.refresh_token, "refresh token")
+        _assert_cookie_session_response(response)
 
 
-def assert_refresh_response(response: LoginResponseSchema, original_refresh_token: str) -> None:
-    """Проверяет токены после refresh и сохранность исходного refresh-токена.
-
-    Args:
-        response: Ответ API на обновление токена.
-        original_refresh_token: Токен из исходного login-ответа.
-
-    Raises:
-        AssertionError: Если токены некорректны или refresh-токен изменился.
-    """
+def assert_refresh_response(response: Response) -> None:
+    """Проверяет HTTP 204, пустое тело и наличие двух cookies после Refresh."""
     with allure.step("Check refresh response"):
-        assert_login_response(response=response)
-        assert_is_true(actual=response.token.refresh_token == original_refresh_token, name="refresh token unchanged")
+        _assert_cookie_session_response(response)
+
+
+def assert_logout_response(response: Response) -> None:
+    """Проверяет HTTP 204 и удаление обеих cookies с исходных путей."""
+    with allure.step("Check logout response"):
+        assert_status_code(response.status_code, HTTPStatus.NO_CONTENT)
+        assert_equal(len(response.content), 0, "authentication response body size")
+        expected_cookies = {("access_token", "/api/v1"), ("refresh_token", APIRoutes.AUTHENTICATION)}
+        assert_is_true(
+            expected_cookies <= _deleted_cookie_targets(response), "session cookies removed at original paths"
+        )
+
+
+def _deleted_cookie_targets(response: Response) -> set[tuple[str, str]]:
+    """Возвращает имена и пути удаляемых cookies, скрывая значения и ошибки разбора."""
+    deleted: set[tuple[str, str]] = set()
+    try:
+        for header in response.headers.get_list("set-cookie"):
+            cookies = SimpleCookie()
+            cookies.load(header)
+            deleted.update((name, cookie["path"]) for name, cookie in cookies.items() if cookie["max-age"] == "0")
+    except CookieError:
+        return set()
+    return deleted
 
 
 def assert_invalid_refresh_token_response(actual: InternalErrorResponseSchema) -> None:
@@ -84,24 +101,5 @@ def assert_login_with_invalid_email_type_response(actual: ValidationErrorRespons
     with allure.step("Check login with invalid email type response"):
         expected = [
             ValidationErrorExpectation(type=ValidationErrorType.STRING_TYPE, input=email, location=["body", "email"])
-        ]
-        assert_validation_error_response(actual=actual, expected=expected)
-
-
-def assert_refresh_with_invalid_token_type_response(actual: ValidationErrorResponseSchema, token: object) -> None:
-    """Проверяет ошибку валидации некорректного типа refresh-токена.
-
-    Args:
-        actual: Фактический ответ API с ошибками валидации.
-        token: Некорректное значение refresh-токена из запроса.
-
-    Raises:
-        AssertionError: Если ошибка валидации не соответствует ожиданиям.
-    """
-    with allure.step("Check refresh with invalid token type response"):
-        expected = [
-            ValidationErrorExpectation(
-                type=ValidationErrorType.STRING_TYPE, input=token, location=["body", "refreshToken"]
-            )
         ]
         assert_validation_error_response(actual=actual, expected=expected)

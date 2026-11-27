@@ -2,8 +2,9 @@ import allure
 from httpx import Response
 
 from clients.api_client import ApiClient
-from clients.authentication.authentication_schema import LoginRequestSchema, LoginResponseSchema, RefreshRequestSchema
+from clients.authentication.authentication_schema import LoginRequestSchema
 from clients.public_http_builder import get_public_http_client
+from tools.assertions.authentication import assert_login_response
 from tools.routes import APIRoutes
 
 
@@ -25,40 +26,34 @@ class AuthenticationClient(ApiClient):
         with allure.step("Login raw request"):
             return self.post(f"{APIRoutes.AUTHENTICATION}/login", json=payload)
 
-    def refresh_api(self, request: RefreshRequestSchema) -> Response:
-        """Отправляет refresh-токен из модели и возвращает HTTP-ответ."""
+    def refresh_api(self) -> Response:
+        """Обновляет сессию через cookie jar, отправляя POST без тела."""
         with allure.step("Refresh token request"):
-            return self.post(f"{APIRoutes.AUTHENTICATION}/refresh", json=request.model_dump(mode="json"))
+            return self.post(f"{APIRoutes.AUTHENTICATION}/refresh")
 
-    def refresh_raw_api(self, payload: dict[str, object]) -> Response:
-        """Отправляет payload обновления токенов без валидации моделью.
+    def logout_api(self) -> Response:
+        """Завершает сессию через cookie jar, отправляя POST без тела."""
+        with allure.step("Logout request"):
+            return self.post(f"{APIRoutes.AUTHENTICATION}/logout")
 
-        Args:
-            payload: JSON-объект, включая невалидные значения для негативных проверок.
-
-        Returns:
-            Исходный HTTP-ответ, включая ошибочный статус.
-        """
-        with allure.step("Refresh raw request"):
-            return self.post(f"{APIRoutes.AUTHENTICATION}/refresh", json=payload)
-
-    def login(self, request: LoginRequestSchema) -> LoginResponseSchema:
-        """Выполняет login и разбирает успешный ответ с токенами.
+    def login(self, request: LoginRequestSchema) -> Response:
+        """Выполняет login и проверяет пустой ответ с cookies авторизации.
 
         Args:
             request: Email и пароль пользователя.
 
         Returns:
-            Проверенная модель ответа авторизации.
+            Проверенный ответ HTTP 204. Cookies сохраняет HTTPX-клиент.
 
         Raises:
             httpx.HTTPStatusError: API вернул ошибочный статус.
-            pydantic.ValidationError: Успешный ответ не соответствует схеме.
+            AssertionError: Статус, тело или cookies не соответствуют контракту.
         """
         with allure.step("Authenticate user"):
             response = self.login_api(request)
             response.raise_for_status()
-            return LoginResponseSchema.model_validate_json(response.content)
+            assert_login_response(response)
+            return response
 
 
 def get_authentication_client() -> AuthenticationClient:
